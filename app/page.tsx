@@ -1,63 +1,57 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { FileText, Pen, Download, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { FileText, Pen, Download, CircleCheck as CheckCircle, Trash2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { PDFViewer } from '@/components/pdf-viewer';
 import SignatureModal from '@/components/signature/signature-modal';
-import { generateContractPDF, embedSignatureInPDF } from '@/lib/generate-contract';
+import { loadOriginalPDF, fillPDFFields, embedSignaturesInPDF } from '@/lib/generate-contract';
 import { toast } from 'sonner';
 
-// Signature position in the PDF (coordinates for client signature box)
-const SIGNATURE_POSITION = {
-  x: 150,
-  y: 70,
-  width: 180,
-  height: 50,
-};
-
 export default function Home() {
+  const [employeeName, setEmployeeName] = useState('');
+  const [nameInput, setNameInput] = useState('');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
+  const [filledPdfBytes, setFilledPdfBytes] = useState<Uint8Array | null>(null);
   const [signedPdfBytes, setSignedPdfBytes] = useState<Uint8Array | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
 
-  useEffect(() => {
-    const loadContract = async () => {
-      try {
-        const pdf = await generateContractPDF();
-        setOriginalPdfBytes(pdf);
-      } catch (error) {
-        console.error('Failed to generate contract:', error);
-        toast.error('Failed to load contract');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const handleNameSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = nameInput.trim();
+    if (!name) return;
 
-    loadContract();
-  }, []);
+    setIsLoading(true);
+    try {
+      const raw = await loadOriginalPDF();
+      const filled = await fillPDFFields(raw, name);
+      setOriginalPdfBytes(raw);
+      setFilledPdfBytes(filled);
+      setEmployeeName(name);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to load document');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [nameInput]);
 
-  // Always sign from the original PDF to avoid layering signatures
   const handleSignatureReady = useCallback(async (signatureData: string) => {
     setShowSignatureModal(false);
     setIsProcessing(true);
 
     try {
-      // Always use original PDF bytes to prevent signature stacking
       if (!originalPdfBytes) {
         toast.error('No document loaded');
         return;
       }
 
-      const modifiedPdf = await embedSignatureInPDF(
-        originalPdfBytes,
-        signatureData,
-        SIGNATURE_POSITION
-      );
-
+      // Always embed into the original to avoid stacking; re-fill fields too
+      const modifiedPdf = await embedSignaturesInPDF(originalPdfBytes, signatureData, employeeName);
       setSignedPdfBytes(modifiedPdf);
       setIsSigned(true);
       toast.success('Signature applied successfully!');
@@ -67,22 +61,23 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
     }
-  }, [originalPdfBytes]);
+  }, [originalPdfBytes, employeeName]);
 
   const handleDownload = useCallback(() => {
-    if (!signedPdfBytes) return;
+    const bytes = signedPdfBytes;
+    if (!bytes) return;
 
-    const blob = new Blob([signedPdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([bytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'signed-contract.pdf';
+    link.download = `IT_Assets_Declaration_${employeeName.replace(/\s+/g, '_')}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success('Download started');
-  }, [signedPdfBytes]);
+  }, [signedPdfBytes, employeeName]);
 
   const handleClearSignature = useCallback(() => {
     setSignedPdfBytes(null);
@@ -90,84 +85,123 @@ export default function Home() {
     toast.success('Signature cleared');
   }, []);
 
-  if (isLoading) {
+  // ── NAME ENTRY SCREEN ───────────────────────────────────────────────────
+  if (!employeeName) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading contract...</p>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-900 mb-4">
+              <FileText className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">IT Assets Declaration</h1>
+            <p className="text-gray-500 mt-2 text-sm">Ampcus Tech Private Limited</p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border p-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Enter Your Name</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Your name will be filled in the declaration form before signing.
+            </p>
+
+            <form onSubmit={handleNameSubmit} className="space-y-4">
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Full name (e.g. Rahul Sharma)"
+                  className="pl-10"
+                  autoFocus
+                  disabled={isLoading}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={!nameInput.trim() || isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Loading document...
+                  </>
+                ) : (
+                  'Continue to Document'
+                )}
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── MAIN SIGNING SCREEN ─────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileText className="w-6 h-6 text-primary" />
+            <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Contract Signing</h1>
-              <p className="text-sm text-muted-foreground">
-                Service Agreement - {new Date().toLocaleDateString()}
-              </p>
+              <h1 className="text-sm font-semibold text-gray-900 leading-tight">IT Assets Declaration</h1>
+              <p className="text-xs text-gray-500">{employeeName} · {new Date().toLocaleDateString('en-IN')}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {isSigned && (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
-                <CheckCircle className="w-5 h-5" />
-                <span className="text-sm font-medium">Document Signed</span>
+              <div className="flex items-center gap-1.5 text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-xs font-medium">Signed</span>
               </div>
             )}
-
             {isSigned && (
-              <Button onClick={handleDownload} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Download Signed PDF
+              <Button size="sm" onClick={handleDownload} className="flex items-center gap-1.5">
+                <Download className="w-3.5 h-3.5" />
+                Download
               </Button>
             )}
-
             {isSigned && (
-              <Button variant="outline" onClick={handleClearSignature} className="flex items-center gap-2">
-                <Trash2 className="w-4 h-4" />
-                Clear Signature
+              <Button size="sm" variant="outline" onClick={handleClearSignature}>
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Clear
               </Button>
             )}
           </div>
         </div>
       </header>
 
-      <div className="flex-1 flex">
-        <div className="flex-1 flex items-stretch">
-          <PDFViewer pdfBytes={signedPdfBytes || originalPdfBytes} />
+      <div className="flex-1 flex justify-center">
+        <div className="w-full max-w-5xl">
+          <PDFViewer pdfBytes={signedPdfBytes || filledPdfBytes} />
         </div>
       </div>
 
-      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2">
-        <div className="bg-white rounded-2xl shadow-2xl border p-2 flex items-center gap-4">
-          <div className="hidden sm:block text-sm text-muted-foreground px-3">
-            {isSigned ? 'Click to replace your signature' : 'Click to sign this document'}
-          </div>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 px-3 py-2 flex items-center gap-3">
+          <span className="hidden sm:block text-sm text-gray-500 pl-2">
+            {isSigned ? 'Replace your signature' : 'Sign this document'}
+          </span>
           <Button
             size="lg"
-            className="flex items-center gap-2 px-8"
+            className="flex items-center gap-2 px-6"
             onClick={() => setShowSignatureModal(true)}
             disabled={isProcessing}
           >
             {isProcessing ? (
               <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Processing...
               </>
             ) : (
               <>
-                <Pen className="w-5 h-5" />
-                {isSigned ? 'Re-Sign Contract' : 'Sign Contract'}
+                <Pen className="w-4 h-4" />
+                {isSigned ? 'Re-Sign' : 'Sign Document'}
               </>
             )}
           </Button>

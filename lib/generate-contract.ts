@@ -2,261 +2,119 @@
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-export async function generateContractPDF(): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([612, 792]); // Standard US Letter size
+const today = () => {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
 
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-  // Header
-  page.drawText('SERVICE AGREEMENT', {
-    x: 180,
-    y: 740,
-    size: 24,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  // Date
-  const today = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  page.drawText(`Date: ${today}`, {
-    x: 50,
-    y: 700,
-    size: 12,
-    font: helvetica,
-    color: rgb(0.2, 0.2, 0.2),
-  });
-
-  // Introduction
-  const intro = 'This Service Agreement ("Agreement") is entered into by and between the parties identified below.';
-  page.drawText(intro, {
-    x: 50,
-    y: 650,
-    size: 11,
-    font: helvetica,
-    color: rgb(0.2, 0.2, 0.2),
-  });
-
-  // Parties Section
-  page.drawText('PARTIES', {
-    x: 50,
-    y: 600,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  const parties = [
-    'Provider: [Company Name], a corporation organized under the laws of the State of California,',
-    'with its principal place of business at [Company Address].',
-    '',
-    'Client: [Client Name], an individual residing at [Client Address].',
-  ];
-
-  let yPos = 580;
-  for (const line of parties) {
-    page.drawText(line, {
-      x: 50,
-      y: yPos,
-      size: 10,
-      font: helvetica,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    yPos -= 15;
-  }
-
-  // Services Section
-  page.drawText('SERVICES', {
-    x: 50,
-    y: 480,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  const services = [
-    'The Provider agrees to provide the following services to the Client:',
-    '',
-    '1. Consulting and advisory services related to [specific domain]',
-    '2. Development and implementation of agreed-upon solutions',
-    '3. Ongoing maintenance and support as outlined in Exhibit A',
-    '4. Regular progress reports and documentation',
-  ];
-
-  yPos = 460;
-  for (const line of services) {
-    page.drawText(line, {
-      x: 50,
-      y: yPos,
-      size: 10,
-      font: helvetica,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    yPos -= 15;
-  }
-
-  // Terms Section
-  page.drawText('TERMS AND CONDITIONS', {
-    x: 50,
-    y: 360,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  const terms = [
-    '1. This Agreement shall commence on the date of signature and continue for a period',
-    '   of twelve (12) months unless terminated earlier as provided herein.',
-    '',
-    '2. Either party may terminate this Agreement with thirty (30) days written notice.',
-    '',
-    '3. All intellectual property created during this engagement shall belong to the Client.',
-    '',
-    '4. The Provider agrees to maintain confidentiality of all Client information.',
-  ];
-
-  yPos = 340;
-  for (const line of terms) {
-    page.drawText(line, {
-      x: 50,
-      y: yPos,
-      size: 10,
-      font: helvetica,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    yPos -= 15;
-  }
-
-  // Compensation Section
-  page.drawText('COMPENSATION', {
-    x: 50,
-    y: 220,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  const compensation = [
-    'In consideration for the services provided, the Client shall pay the Provider',
-    'a fee of $[Amount] per month, payable within 15 days of invoice receipt.',
-  ];
-
-  yPos = 200;
-  for (const line of compensation) {
-    page.drawText(line, {
-      x: 50,
-      y: yPos,
-      size: 10,
-      font: helvetica,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    yPos -= 15;
-  }
-
-  // Signature Lines
-  page.drawText('SIGNATURES', {
-    x: 50,
-    y: 140,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  // Client signature area
-  page.drawText('Client Signature:', {
-    x: 50,
-    y: 110,
-    size: 11,
-    font: helvetica,
-    color: rgb(0.2, 0.2, 0.2),
-  });
-
-  page.drawLine({
-    start: { x: 150, y: 100 },
-    end: { x: 350, y: 100 },
-    thickness: 1,
-    color: rgb(0.5, 0.5, 0.5),
-  });
-
-  // Signature placeholder box (this is where we'll embed the signature)
-  page.drawRectangle({
-    x: 150,
-    y: 70,
-    width: 180,
-    height: 50,
-    borderColor: rgb(0.8, 0.8, 0.8),
-    borderWidth: 1,
-  });
-
-  // Provider signature area
-  page.drawText('Provider Signature:', {
-    x: 380,
-    y: 110,
-    size: 11,
-    font: helvetica,
-    color: rgb(0.2, 0.2, 0.2),
-  });
-
-  page.drawLine({
-    start: { x: 480, y: 100 },
-    end: { x: 480, y: 100 }, // Short line
-    thickness: 1,
-    color: rgb(0.5, 0.5, 0.5),
-  });
-
-  page.drawRectangle({
-    x: 380,
-    y: 70,
-    width: 180,
-    height: 50,
-    borderColor: rgb(0.8, 0.8, 0.8),
-    borderWidth: 1,
-  });
-
-  // Footer
-  page.drawText('By signing below, both parties acknowledge they have read and agree to the terms of this Agreement.', {
-    x: 50,
-    y: 40,
-    size: 9,
-    font: helvetica,
-    color: rgb(0.4, 0.4, 0.4),
-  });
-
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
+export async function loadOriginalPDF(): Promise<Uint8Array> {
+  const response = await fetch('/IT_Assets_Declartion_and_Undertaking_Draft copy.pdf');
+  if (!response.ok) throw new Error('Failed to load PDF');
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
 }
 
-export async function embedSignatureInPDF(
+export async function fillPDFFields(
+  pdfBytes: Uint8Array,
+  employeeName: string
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const dateStr = today();
+  const pages = pdfDoc.getPages();
+
+  // ── PAGE 1 – REQUEST FOR IT ASSETS ──────────────────────────────────────
+  if (pages.length >= 1) {
+    const p1 = pages[0];
+    const { height } = p1.getSize();
+
+    // Top date: cover placeholder "XX-0X-202X" and write real date
+    p1.drawRectangle({ x: 66, y: height - 148, width: 100, height: 14, color: rgb(1, 1, 1) });
+    p1.drawText(dateStr, { x: 68, y: height - 147, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+
+    // Name in "I Mr/Ms-" blank: cover the underline area
+    p1.drawRectangle({ x: 116, y: height - 176, width: 180, height: 13, color: rgb(1, 1, 1) });
+    p1.drawText(employeeName, { x: 118, y: height - 175, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+
+    // Bottom signature section – Employee Name
+    p1.drawRectangle({ x: 130, y: height - 540, width: 180, height: 13, color: rgb(1, 1, 1) });
+    p1.drawText(employeeName, { x: 132, y: height - 539, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+
+    // Bottom date
+    p1.drawRectangle({ x: 55, y: height - 557, width: 120, height: 13, color: rgb(1, 1, 1) });
+    p1.drawText(dateStr, { x: 57, y: height - 556, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+  }
+
+  // ── PAGE 2 – DECLARATION / UNDERTAKING ──────────────────────────────────
+  if (pages.length >= 2) {
+    const p2 = pages[1];
+    const { height } = p2.getSize();
+
+    // Employee Name
+    p2.drawRectangle({ x: 130, y: height - 645, width: 180, height: 13, color: rgb(1, 1, 1) });
+    p2.drawText(employeeName, { x: 132, y: height - 644, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+
+    // Date
+    p2.drawRectangle({ x: 55, y: height - 663, width: 120, height: 13, color: rgb(1, 1, 1) });
+    p2.drawText(dateStr, { x: 57, y: height - 662, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+  }
+
+  return pdfDoc.save();
+}
+
+export async function embedSignaturesInPDF(
   pdfBytes: Uint8Array,
   signatureImageBase64: string,
-  position: { x: number; y: number; width: number; height: number }
+  employeeName: string
 ): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const dateStr = today();
 
-  // Convert base64 to Uint8Array
-  const signatureBase64 = signatureImageBase64.split(',')[1] || signatureImageBase64;
-  const signatureBytes = Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
-
-  // Embed the PNG image
+  const base64Data = signatureImageBase64.split(',')[1] || signatureImageBase64;
+  const signatureBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
   const signatureImage = await pdfDoc.embedPng(signatureBytes);
 
-  // Get the first page
   const pages = pdfDoc.getPages();
-  const firstPage = pages[0];
 
-  // Draw the signature at the specified position
-  firstPage.drawImage(signatureImage, {
-    x: position.x,
-    y: position.y,
-    width: position.width,
-    height: position.height,
-  });
+  // ── PAGE 1 – embed signature + name + date ───────────────────────────────
+  if (pages.length >= 1) {
+    const p1 = pages[0];
+    const { height } = p1.getSize();
 
-  const modifiedPdfBytes = await pdfDoc.save();
-  return modifiedPdfBytes;
+    // Signature image (above the "Employee Name" line)
+    p1.drawRectangle({ x: 54, y: height - 530, width: 200, height: 44, color: rgb(1, 1, 1) });
+    p1.drawImage(signatureImage, { x: 55, y: height - 528, width: 190, height: 40 });
+
+    // Employee Name (re-write since fillPDFFields may have already written it)
+    p1.drawRectangle({ x: 130, y: height - 542, width: 180, height: 13, color: rgb(1, 1, 1) });
+    p1.drawText(employeeName, { x: 132, y: height - 541, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+
+    // Date
+    p1.drawRectangle({ x: 55, y: height - 559, width: 120, height: 13, color: rgb(1, 1, 1) });
+    p1.drawText(dateStr, { x: 57, y: height - 558, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+  }
+
+  // ── PAGE 2 – embed signature + name + date ───────────────────────────────
+  if (pages.length >= 2) {
+    const p2 = pages[1];
+    const { height } = p2.getSize();
+
+    // Signature image
+    p2.drawRectangle({ x: 54, y: height - 635, width: 200, height: 44, color: rgb(1, 1, 1) });
+    p2.drawImage(signatureImage, { x: 55, y: height - 633, width: 190, height: 40 });
+
+    // Employee Name
+    p2.drawRectangle({ x: 130, y: height - 647, width: 180, height: 13, color: rgb(1, 1, 1) });
+    p2.drawText(employeeName, { x: 132, y: height - 646, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+
+    // Date
+    p2.drawRectangle({ x: 55, y: height - 665, width: 120, height: 13, color: rgb(1, 1, 1) });
+    p2.drawText(dateStr, { x: 57, y: height - 664, size: 10, font: helvetica, color: rgb(0, 0, 0) });
+  }
+
+  return pdfDoc.save();
 }

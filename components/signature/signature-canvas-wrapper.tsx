@@ -21,29 +21,18 @@ const SignatureCanvasWrapper = forwardRef<SignatureCanvasRef, SignatureCanvasWra
   ({ penColor = 'black', minWidth = 2, maxWidth = 4, backgroundColor = 'transparent' }, ref) => {
     const canvasRef = useRef<SignatureCanvas>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [dimensions, setDimensions] = useState({ width: 500, height: 200 });
+    const [width, setWidth] = useState(500);
 
     useEffect(() => {
-      const updateDimensions = () => {
+      const update = () => {
         if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          setDimensions({
-            width: rect.width,
-            height: Math.max(200, rect.height),
-          });
+          setWidth(Math.floor(containerRef.current.getBoundingClientRect().width));
         }
       };
-
-      updateDimensions();
-      window.addEventListener('resize', updateDimensions);
-      return () => window.removeEventListener('resize', updateDimensions);
-    }, []);
-
-    // Clear signature when reset is called
-    useEffect(() => {
-      if (canvasRef.current) {
-        canvasRef.current.clear();
-      }
+      update();
+      const observer = new ResizeObserver(update);
+      if (containerRef.current) observer.observe(containerRef.current);
+      return () => observer.disconnect();
     }, []);
 
     useImperativeHandle(ref, () => ({
@@ -53,14 +42,11 @@ const SignatureCanvasWrapper = forwardRef<SignatureCanvasRef, SignatureCanvasWra
       getCanvas: () => canvasRef.current?.getCanvas() as HTMLCanvasElement,
     }));
 
-    // Use a fixed pixel ratio for better accuracy
-    const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-
     return (
       <div
         ref={containerRef}
-        className="w-full h-[200px] cursor-crosshair"
-        style={{ touchAction: 'none' }}
+        className="w-full"
+        style={{ height: 200, touchAction: 'none', cursor: 'crosshair' }}
       >
         <SignatureCanvas
           ref={canvasRef}
@@ -69,22 +55,13 @@ const SignatureCanvasWrapper = forwardRef<SignatureCanvasRef, SignatureCanvasWra
           maxWidth={maxWidth}
           backgroundColor={backgroundColor}
           canvasProps={{
-            width: dimensions.width * pixelRatio,
-            height: dimensions.height * pixelRatio,
-            className: 'signature-canvas',
-            style: {
-              width: '100%',
-              height: '100%',
-              border: '1px solid transparent',
-            },
+            width,
+            height: 200,
+            style: { width: '100%', height: '100%', display: 'block' },
           }}
-          dotSize={4}
+          dotSize={3}
+          velocityFilterWeight={0.7}
         />
-        <style jsx global>{`
-          .signature-canvas {
-            touch-action: none;
-          }
-        `}</style>
       </div>
     );
   }
