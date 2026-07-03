@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { FileText, Pen, Download, CheckCircle, RefreshCw } from 'lucide-react';
+import { FileText, Pen, Download, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PDFViewer } from '@/components/pdf-viewer';
 import SignatureModal from '@/components/signature/signature-modal';
@@ -40,19 +40,20 @@ export default function Home() {
     loadContract();
   }, []);
 
+  // Always sign from the original PDF to avoid layering signatures
   const handleSignatureReady = useCallback(async (signatureData: string) => {
     setShowSignatureModal(false);
     setIsProcessing(true);
 
     try {
-      const pdfToSign = signedPdfBytes || originalPdfBytes;
-      if (!pdfToSign) {
+      // Always use original PDF bytes to prevent signature stacking
+      if (!originalPdfBytes) {
         toast.error('No document loaded');
         return;
       }
 
       const modifiedPdf = await embedSignatureInPDF(
-        pdfToSign,
+        originalPdfBytes,
         signatureData,
         SIGNATURE_POSITION
       );
@@ -66,7 +67,7 @@ export default function Home() {
     } finally {
       setIsProcessing(false);
     }
-  }, [originalPdfBytes, signedPdfBytes]);
+  }, [originalPdfBytes]);
 
   const handleDownload = useCallback(() => {
     if (!signedPdfBytes) return;
@@ -83,9 +84,10 @@ export default function Home() {
     toast.success('Download started');
   }, [signedPdfBytes]);
 
-  const handleReset = useCallback(() => {
+  const handleClearSignature = useCallback(() => {
     setSignedPdfBytes(null);
     setIsSigned(false);
+    toast.success('Signature cleared');
   }, []);
 
   if (isLoading) {
@@ -131,9 +133,9 @@ export default function Home() {
             )}
 
             {isSigned && (
-              <Button variant="outline" onClick={handleReset}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reset
+              <Button variant="outline" onClick={handleClearSignature} className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                Clear Signature
               </Button>
             )}
           </div>
@@ -149,7 +151,7 @@ export default function Home() {
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2">
         <div className="bg-white rounded-2xl shadow-2xl border p-2 flex items-center gap-4">
           <div className="hidden sm:block text-sm text-muted-foreground px-3">
-            Click to sign this document with your signature
+            {isSigned ? 'Click to replace your signature' : 'Click to sign this document'}
           </div>
           <Button
             size="lg"
@@ -165,7 +167,7 @@ export default function Home() {
             ) : (
               <>
                 <Pen className="w-5 h-5" />
-                Sign Contract
+                {isSigned ? 'Re-Sign Contract' : 'Sign Contract'}
               </>
             )}
           </Button>
@@ -176,6 +178,7 @@ export default function Home() {
         open={showSignatureModal}
         onClose={() => setShowSignatureModal(false)}
         onSignatureReady={handleSignatureReady}
+        hasSignature={isSigned}
       />
     </div>
   );

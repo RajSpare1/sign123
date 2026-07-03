@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { Pen, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -168,18 +167,12 @@ export default function MobileSignPage() {
               </Button>
             </div>
 
-            <div className="border-2 border-dashed rounded-xl overflow-hidden bg-slate-50">
+            <div className="border-2 border-dashed rounded-xl overflow-hidden bg-slate-50 p-2">
               <SignatureCanvasWrapper
                 ref={sigCanvasRef}
                 penColor={penColor}
                 minWidth={2}
                 maxWidth={5}
-                canvasProps={{
-                  width: 400,
-                  height: 300,
-                  className: 'w-full touch-none',
-                  style: { width: '100%', height: '300px' },
-                }}
                 backgroundColor="transparent"
               />
             </div>

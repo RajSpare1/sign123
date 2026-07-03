@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { Pen, Type, Upload, Smartphone, Trash2 } from 'lucide-react';
+import { Pen, Type, Upload, Smartphone, Trash2, Eraser } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,6 +19,7 @@ interface SignatureModalProps {
   open: boolean;
   onClose: () => void;
   onSignatureReady: (signatureData: string) => void;
+  hasSignature?: boolean;
 }
 
 const SIGNATURE_COLORS = [
@@ -35,7 +35,7 @@ const FONT_STYLES = [
   { font: "'Great Vibes', cursive", weight: 400, name: 'Great Vibes' },
 ];
 
-export default function SignatureModal({ open, onClose, onSignatureReady }: SignatureModalProps) {
+export default function SignatureModal({ open, onClose, onSignatureReady, hasSignature }: SignatureModalProps) {
   const sigCanvasRef = useRef<SignatureCanvasRef>(null);
   const [activeTab, setActiveTab] = useState<SignatureMode>('draw');
   const [selectedColor, setSelectedColor] = useState<SignatureColor>('#000000');
@@ -49,6 +49,20 @@ export default function SignatureModal({ open, onClose, onSignatureReady }: Sign
 
   // Get the base URL for QR code
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+  // Reset when modal opens
+  useEffect(() => {
+    if (open) {
+      // Reset all state when modal opens
+      setTypedName('');
+      setUploadedImage(null);
+      setActiveTab('draw');
+      // Clear canvas after a small delay to ensure it's mounted
+      setTimeout(() => {
+        sigCanvasRef.current?.clear();
+      }, 100);
+    }
+  }, [open]);
 
   // Cleanup on close
   useEffect(() => {
@@ -192,7 +206,14 @@ export default function SignatureModal({ open, onClose, onSignatureReady }: Sign
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl">Add Your Signature</DialogTitle>
+          <DialogTitle className="text-xl">
+            {hasSignature ? 'Replace Signature' : 'Add Your Signature'}
+          </DialogTitle>
+          {hasSignature && (
+            <p className="text-sm text-muted-foreground">
+              Signing again will replace your current signature
+            </p>
+          )}
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SignatureMode)} className="w-full">
@@ -238,26 +259,24 @@ export default function SignatureModal({ open, onClose, onSignatureReady }: Sign
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={clearSignature}>
-                  <Trash2 className="w-4 h-4 mr-1" />
+                  <Eraser className="w-4 h-4 mr-1" />
                   Clear
                 </Button>
               </div>
 
-              <div className="border-2 border-dashed rounded-lg overflow-hidden bg-white">
+              <div className="border-2 border-dashed rounded-lg overflow-hidden bg-white p-2">
                 <SignatureCanvasWrapper
                   ref={sigCanvasRef}
                   penColor={selectedColor}
                   minWidth={2}
                   maxWidth={4}
-                  canvasProps={{
-                    width: 500,
-                    height: 200,
-                    className: 'w-full touch-none',
-                    style: { width: '100%', height: '200px' },
-                  }}
                   backgroundColor="transparent"
                 />
               </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Draw your signature using mouse or touchpad. Sign within the box above.
+              </p>
 
               <div className="flex justify-end">
                 <Button onClick={handleDrawSubmit}>
