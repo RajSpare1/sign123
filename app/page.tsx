@@ -1,144 +1,75 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { FileText, Pen, Download, CircleCheck as CheckCircle, Trash2, User } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { FileText, Pen, Download, CircleCheck as CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { PDFViewer } from '@/components/pdf-viewer';
 import SignatureModal from '@/components/signature/signature-modal';
-import { loadOriginalPDF, fillPDFFields, embedSignaturesInPDF } from '@/lib/generate-contract';
+import { loadOriginalPDF, embedSignaturesInPDF } from '@/lib/generate-contract';
 import { toast } from 'sonner';
 
 export default function Home() {
-  const [employeeName, setEmployeeName] = useState('');
-  const [nameInput, setNameInput] = useState('');
   const [originalPdfBytes, setOriginalPdfBytes] = useState<Uint8Array | null>(null);
-  const [filledPdfBytes, setFilledPdfBytes] = useState<Uint8Array | null>(null);
   const [signedPdfBytes, setSignedPdfBytes] = useState<Uint8Array | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
 
-  const handleNameSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = nameInput.trim();
-    if (!name) return;
-
-    setIsLoading(true);
-    try {
-      const raw = await loadOriginalPDF();
-      const filled = await fillPDFFields(raw, name);
-      setOriginalPdfBytes(raw);
-      setFilledPdfBytes(filled);
-      setEmployeeName(name);
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to load document');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [nameInput]);
+  useEffect(() => {
+    loadOriginalPDF()
+      .then(setOriginalPdfBytes)
+      .catch(() => toast.error('Failed to load document'))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const handleSignatureReady = useCallback(async (signatureData: string) => {
     setShowSignatureModal(false);
     setIsProcessing(true);
-
     try {
-      if (!originalPdfBytes) {
-        toast.error('No document loaded');
-        return;
-      }
-
-      // Always embed into the original to avoid stacking; re-fill fields too
-      const modifiedPdf = await embedSignaturesInPDF(originalPdfBytes, signatureData, employeeName);
-      setSignedPdfBytes(modifiedPdf);
+      if (!originalPdfBytes) { toast.error('No document loaded'); return; }
+      const modified = await embedSignaturesInPDF(originalPdfBytes, signatureData);
+      setSignedPdfBytes(modified);
       setIsSigned(true);
-      toast.success('Signature applied successfully!');
-    } catch (error) {
-      console.error('Failed to embed signature:', error);
+      toast.success('Signature applied!');
+    } catch {
       toast.error('Failed to apply signature');
     } finally {
       setIsProcessing(false);
     }
-  }, [originalPdfBytes, employeeName]);
+  }, [originalPdfBytes]);
 
   const handleDownload = useCallback(() => {
-    const bytes = signedPdfBytes;
-    if (!bytes) return;
-
-    const blob = new Blob([bytes], { type: 'application/pdf' });
+    if (!signedPdfBytes) return;
+    const blob = new Blob([signedPdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `IT_Assets_Declaration_${employeeName.replace(/\s+/g, '_')}.pdf`;
+    link.download = 'IT_Assets_Declaration_Signed.pdf';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     toast.success('Download started');
-  }, [signedPdfBytes, employeeName]);
+  }, [signedPdfBytes]);
 
-  const handleClearSignature = useCallback(() => {
+  const handleClear = useCallback(() => {
     setSignedPdfBytes(null);
     setIsSigned(false);
     toast.success('Signature cleared');
   }, []);
 
-  // ── NAME ENTRY SCREEN ───────────────────────────────────────────────────
-  if (!employeeName) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-900 mb-4">
-              <FileText className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">IT Assets Declaration</h1>
-            <p className="text-gray-500 mt-2 text-sm">Ampcus Tech Private Limited</p>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border p-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Enter Your Name</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Your name will be filled in the declaration form before signing.
-            </p>
-
-            <form onSubmit={handleNameSubmit} className="space-y-4">
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="Full name (e.g. Rahul Sharma)"
-                  className="pl-10"
-                  autoFocus
-                  disabled={isLoading}
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={!nameInput.trim() || isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Loading document...
-                  </>
-                ) : (
-                  'Continue to Document'
-                )}
-              </Button>
-            </form>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Loading document...</p>
         </div>
       </div>
     );
   }
 
-  // ── MAIN SIGNING SCREEN ─────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
@@ -148,8 +79,8 @@ export default function Home() {
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold text-gray-900 leading-tight">IT Assets Declaration</h1>
-              <p className="text-xs text-gray-500">{employeeName} · {new Date().toLocaleDateString('en-IN')}</p>
+              <h1 className="text-sm font-semibold text-gray-900">IT Assets Declaration</h1>
+              <p className="text-xs text-gray-500">Ampcus Tech Private Limited</p>
             </div>
           </div>
 
@@ -167,7 +98,7 @@ export default function Home() {
               </Button>
             )}
             {isSigned && (
-              <Button size="sm" variant="outline" onClick={handleClearSignature}>
+              <Button size="sm" variant="outline" onClick={handleClear}>
                 <Trash2 className="w-3.5 h-3.5 mr-1" />
                 Clear
               </Button>
@@ -178,7 +109,7 @@ export default function Home() {
 
       <div className="flex-1 flex justify-center">
         <div className="w-full max-w-5xl">
-          <PDFViewer pdfBytes={signedPdfBytes || filledPdfBytes} />
+          <PDFViewer pdfBytes={signedPdfBytes || originalPdfBytes} />
         </div>
       </div>
 
